@@ -10,6 +10,8 @@ package lab7binarios.ui;
  */
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import lab7binarios.logic.Archivo;
@@ -18,26 +20,26 @@ import lab7binarios.model.Cancion;
 
 public class ReproductorFrame extends JFrame {
 
-    private DefaultListModel<Cancion> modeloLista = new DefaultListModel<>();
-    private JList<Cancion> listaCanciones = new JList<>(modeloLista);
+    private final DefaultListModel<Cancion> modeloLista = new DefaultListModel<>();
+    private final JList<Cancion> listaCanciones = new JList<>(modeloLista);
 
-    private JLabel imagenAlbum = new JLabel();
-    private JLabel lblTitulo = new JLabel("Título de la canción", SwingConstants.CENTER);
-    private JLabel lblArtista = new JLabel("Artista", SwingConstants.CENTER);
-    private JLabel lblTiempoActual = new JLabel("0:00");
-    private JLabel lblTiempoTotal = new JLabel("0:00");
+    private final JLabel imagenAlbum = new JLabel();
+    private final JLabel lblTitulo = new JLabel("Título de la canción", SwingConstants.CENTER);
+    private final JLabel lblArtista = new JLabel("Artista", SwingConstants.CENTER);
+    private final JLabel lblTiempoActual = new JLabel("0:00");
+    private final JLabel lblTiempoTotal = new JLabel("0:00");
     
-    private JProgressBar progressBar = new JProgressBar(0, 100);
+    private final JProgressBar progressBar = new JProgressBar(0, 100);
 
-    private JButton btnPlayPause = new JButton();
-    private JButton btnStop = new JButton();
-    private JButton btnAdd = new JButton();
-    private JButton btnRemove = new JButton();
+    private final JButton btnPlayPause = new JButton();
+    private final JButton btnStop = new JButton();
+    private final JButton btnAdd = new JButton();
+    private final JButton btnRemove = new JButton();
 
     private ArrayList<Cancion> playlist = new ArrayList<>();
 
-    private ReproductorUniversal reproductor = new ReproductorUniversal();
-    private Archivo archivo;
+    private final ReproductorUniversal reproductor = new ReproductorUniversal();
+    private final Archivo archivo;
     private Timer progressTimer;
     private boolean isPlaying = false;
     
@@ -48,6 +50,10 @@ public class ReproductorFrame extends JFrame {
     private ImageIcon iconAdd;
     private ImageIcon iconRemove;
     private ImageIcon iconSpotify;
+    
+    // Caché de imágenes para mejorar rendimiento
+    private final Map<String, ImageIcon> cacheMiniaturas = new HashMap<>();
+    private final Map<String, ImageIcon> cacheImagenesGrandes = new HashMap<>();
 
     public ReproductorFrame() throws Exception {
 
@@ -102,15 +108,12 @@ public class ReproductorFrame extends JFrame {
     }
 
     private void configurarComponentes() {
-        // Panel izquierdo - Playlist
         JPanel panelIzquierdo = crearPanelPlaylist();
         add(panelIzquierdo, BorderLayout.WEST);
 
-        // Panel central - Reproductor
         JPanel panelCentro = crearPanelReproductor();
         add(panelCentro, BorderLayout.CENTER);
 
-        // Panel inferior - Controles
         JPanel panelControles = crearPanelControles();
         add(panelControles, BorderLayout.SOUTH);
     }
@@ -126,7 +129,6 @@ public class ReproductorFrame extends JFrame {
         titulo.setForeground(Color.WHITE);
         titulo.setBorder(new EmptyBorder(0, 0, 10, 0));
         
-        // Agregar icono de Spotify si existe
         if (iconSpotify != null) {
             titulo.setIcon(iconSpotify);
             titulo.setHorizontalTextPosition(SwingConstants.RIGHT);
@@ -141,7 +143,6 @@ public class ReproductorFrame extends JFrame {
         listaCanciones.setBorder(new EmptyBorder(5, 5, 5, 5));
         listaCanciones.setFixedCellHeight(60);
         
-        // Renderer personalizado para mostrar canciones con estilo Spotify
         listaCanciones.setCellRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value, 
@@ -158,15 +159,20 @@ public class ReproductorFrame extends JFrame {
                 
                 Cancion c = (Cancion) value;
                 
-                // Miniatura de la imagen
+                // Miniatura de la imagen con caché
                 JLabel lblImagen = new JLabel();
-                try {
-                    ImageIcon img = new ImageIcon(c.getRutaImagen());
-                    Image imagenEscalada = img.getImage().getScaledInstance(45, 45, Image.SCALE_SMOOTH);
-                    lblImagen.setIcon(new ImageIcon(imagenEscalada));
-                } catch (Exception e) {
-                    // Sin icono fallback
+                ImageIcon miniatura = cacheMiniaturas.get(c.getRutaImagen());
+                if (miniatura == null) {
+                    try {
+                        ImageIcon img = new ImageIcon(c.getRutaImagen());
+                        Image imagenEscalada = img.getImage().getScaledInstance(45, 45, Image.SCALE_SMOOTH);
+                        miniatura = new ImageIcon(imagenEscalada);
+                        cacheMiniaturas.put(c.getRutaImagen(), miniatura);
+                    } catch (Exception e) {
+                        // Sin icono fallback
+                    }
                 }
+                lblImagen.setIcon(miniatura);
                 lblImagen.setPreferredSize(new Dimension(45, 45));
                 
                 // Info de la canción
@@ -219,7 +225,6 @@ public class ReproductorFrame extends JFrame {
         panel.setBackground(new Color(18, 18, 18));
         panel.setBorder(new EmptyBorder(30, 30, 30, 30));
 
-        // Imagen del álbum con sombra
         JPanel panelImagen = new JPanel(new GridBagLayout());
         panelImagen.setBackground(new Color(18, 18, 18));
         
@@ -234,7 +239,6 @@ public class ReproductorFrame extends JFrame {
         
         panelImagen.add(imagenAlbum);
 
-        // Info de la canción
         JPanel panelInfo = new JPanel();
         panelInfo.setLayout(new BoxLayout(panelInfo, BoxLayout.Y_AXIS));
         panelInfo.setBackground(new Color(18, 18, 18));
@@ -263,7 +267,6 @@ public class ReproductorFrame extends JFrame {
         panel.setBackground(new Color(30, 30, 30));
         panel.setBorder(new EmptyBorder(15, 20, 15, 20));
 
-        // Progress bar con tiempos
         JPanel panelProgress = new JPanel(new BorderLayout(10, 5));
         panelProgress.setBackground(new Color(30, 30, 30));
 
@@ -276,6 +279,7 @@ public class ReproductorFrame extends JFrame {
         
         // Hacer el progressBar clickeable para saltar en la canción
         progressBar.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 if (isPlaying || reproductor.isPaused()) {
                     int mouseX = evt.getX();
@@ -297,10 +301,6 @@ public class ReproductorFrame extends JFrame {
         // Botones de control
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
         panelBotones.setBackground(new Color(30, 30, 30));
-
-        btnPlayPause.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        btnStop.setText("⏹");
-        btnStop.setFont(new Font("Segoe UI", Font.BOLD, 20));
 
         estilizarBotonControl(btnPlayPause);
         estilizarBotonControl(btnStop);
@@ -357,6 +357,7 @@ public class ReproductorFrame extends JFrame {
         
         // Doble click en la lista para reproducir
         listaCanciones.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 if (evt.getClickCount() == 2) {
                     reproducir();
@@ -370,26 +371,29 @@ public class ReproductorFrame extends JFrame {
         lblArtista.setText(c.getArtista());
         lblTiempoTotal.setText(c.getDuracion());
 
-        ImageIcon img = new ImageIcon(c.getRutaImagen());
-        Image imagenEscalada = img.getImage().getScaledInstance(400, 400, Image.SCALE_SMOOTH);
-        imagenAlbum.setIcon(new ImageIcon(imagenEscalada));
+        // Usar caché para imagen grande
+        ImageIcon imagenGrande = cacheImagenesGrandes.get(c.getRutaImagen());
+        if (imagenGrande == null) {
+            ImageIcon img = new ImageIcon(c.getRutaImagen());
+            Image imagenEscalada = img.getImage().getScaledInstance(400, 400, Image.SCALE_SMOOTH);
+            imagenGrande = new ImageIcon(imagenEscalada);
+            cacheImagenesGrandes.put(c.getRutaImagen(), imagenGrande);
+        }
+        imagenAlbum.setIcon(imagenGrande);
     }
 
     private void togglePlayPause() {
         if (isPlaying) {
-            // Pausar
             reproductor.pause();
             if(progressTimer != null) progressTimer.stop();
             btnPlayPause.setIcon(iconPlay);
             isPlaying = false;
         } else if (reproductor.isPaused()) {
-            // Resume
             reproductor.resume();
             if(progressTimer != null) progressTimer.start();
             btnPlayPause.setIcon(iconPause);
             isPlaying = true;
         } else {
-            // Play desde el inicio
             reproducir();
         }
     }
@@ -426,7 +430,6 @@ public class ReproductorFrame extends JFrame {
             progressTimer.stop();
         }
 
-        // Convertir duración a segundos
         String[] partes = duracionStr.replace(" (aprox)", "").split(":");
         int duracionTotal = Integer.parseInt(partes[0]) * 60 + Integer.parseInt(partes[1]);
 
@@ -491,7 +494,6 @@ public class ReproductorFrame extends JFrame {
             playlist.remove(index);
             modeloLista.remove(index);
             
-            // Reescribir el archivo sin la canción eliminada
             try {
                 archivo.reescribirArchivo(playlist);
             } catch (Exception ex) {
@@ -500,7 +502,6 @@ public class ReproductorFrame extends JFrame {
                     "Error", JOptionPane.ERROR_MESSAGE);
             }
             
-            // Limpiar selección y UI
             listaCanciones.clearSelection();
             lblTitulo.setText("Título de la canción");
             lblArtista.setText("Artista");
@@ -515,10 +516,8 @@ public class ReproductorFrame extends JFrame {
         try {
             Cancion c = listaCanciones.getSelectedValue();
             if (c != null) {
-                // Usar el método seek del reproductor
                 reproductor.seek(segundos);
                 
-                // Actualizar la barra de progreso
                 progressBar.setValue(segundos);
                 int min = segundos / 60;
                 int seg = segundos % 60;
