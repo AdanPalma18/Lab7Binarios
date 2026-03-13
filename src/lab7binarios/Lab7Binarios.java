@@ -4,6 +4,7 @@
  */
 package lab7binarios;
 
+import lab7binarios.ui.ReproductorFrame;
 /**
  *
  * @author palma
@@ -14,7 +15,11 @@ public class Lab7Binarios {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-        // TODO code application logic here
+        try { 
+            new ReproductorFrame().setVisible(true);
+        } catch(Exception ex) {
+            System.out.println("Error: " + ex.getMessage());
+        }
     }
     
 }

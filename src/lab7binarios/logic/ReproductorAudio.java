@@ -18,6 +18,11 @@ public class ReproductorAudio {
 
     public void play(String ruta) throws Exception {
 
+        // Cerrar clip anterior si existe
+        if (clip != null && clip.isOpen()) {
+            clip.close();
+        }
+
         File file = new File(ruta);
         AudioInputStream audio = AudioSystem.getAudioInputStream(file);
 
