@@ -52,4 +52,20 @@ public class Archivo {
 
         return lista;
     }
+    
+    public void reescribirArchivo(ArrayList<Cancion> canciones) throws Exception {
+        // Limpiar el archivo
+        archivo.setLength(0);
+        archivo.seek(0);
+        
+        // Escribir todas las canciones
+        for(Cancion c : canciones) {
+            archivo.writeUTF(c.getNombre());
+            archivo.writeUTF(c.getArtista());
+            archivo.writeUTF(c.getDuracion());
+            archivo.writeUTF(c.getGenero());
+            archivo.writeUTF(c.getRutaImagen());
+            archivo.writeUTF(c.getRutaAudio());
+        }
+    }
 }

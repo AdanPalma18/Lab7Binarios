@@ -1,19 +1,28 @@
 package lab7binarios.logic;
 
+import javafx.embed.swing.JFXPanel;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javafx.util.Duration;
 import java.io.File;
-import java.io.FileInputStream;
 import javax.sound.sampled.*;
-import javazoom.jl.player.Player;
 
 public class ReproductorUniversal {
     
     private Clip clip;
-    private Player mp3Player;
-    private Thread mp3Thread;
+    private MediaPlayer mediaPlayer;
     private Long posicion;
     private boolean isPaused = false;
     private boolean isMP3 = false;
-    private String currentFile;
+    private static boolean javafxInitialized = false;
+    
+    public ReproductorUniversal() {
+        // Inicializar JavaFX (solo una vez)
+        if (!javafxInitialized) {
+            new JFXPanel();
+            javafxInitialized = true;
+        }
+    }
     
     public void play(String ruta) throws Exception {
         stop(); // Detener cualquier reproducción anterior
@@ -22,8 +31,6 @@ public class ReproductorUniversal {
         if (!file.exists()) {
             throw new Exception("El archivo no existe: " + ruta);
         }
-        
-        currentFile = ruta;
         
         // Detectar si es MP3 o WAV
         if (ruta.toLowerCase().endsWith(".mp3")) {
@@ -46,27 +53,24 @@ public class ReproductorUniversal {
         isMP3 = true;
         isPaused = false;
         
-        mp3Thread = new Thread(() -> {
-            try {
-                FileInputStream fis = new FileInputStream(ruta);
-                mp3Player = new Player(fis);
-                mp3Player.play();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        File file = new File(ruta);
+        Media media = new Media(file.toURI().toString());
+        mediaPlayer = new MediaPlayer(media);
+        
+        mediaPlayer.setOnError(() -> {
+            System.err.println("Error al reproducir: " + mediaPlayer.getError().getMessage());
         });
-        mp3Thread.start();
+        
+        mediaPlayer.play();
     }
     
     public void pause() {
         if (isMP3) {
-            // MP3: detener y guardar posición (JLayer no soporta pause nativo)
-            if (mp3Player != null) {
-                mp3Player.close();
+            if (mediaPlayer != null && mediaPlayer.getStatus() == MediaPlayer.Status.PLAYING) {
+                mediaPlayer.pause();
                 isPaused = true;
             }
         } else {
-            // WAV: pause nativo
             if (clip != null && clip.isRunning()) {
                 posicion = clip.getMicrosecondPosition();
                 clip.stop();
@@ -77,16 +81,11 @@ public class ReproductorUniversal {
     
     public void resume() {
         if (isMP3) {
-            // MP3: reiniciar desde el principio (limitación de JLayer)
-            try {
-                if (isPaused && currentFile != null) {
-                    playMP3(currentFile);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
+            if (mediaPlayer != null && mediaPlayer.getStatus() == MediaPlayer.Status.PAUSED) {
+                mediaPlayer.play();
+                isPaused = false;
             }
         } else {
-            // WAV: resume desde posición guardada
             if (clip != null && isPaused) {
                 clip.setMicrosecondPosition(posicion);
                 clip.start();
@@ -97,13 +96,10 @@ public class ReproductorUniversal {
     
     public void stop() {
         if (isMP3) {
-            if (mp3Player != null) {
-                mp3Player.close();
-                mp3Player = null;
-            }
-            if (mp3Thread != null) {
-                mp3Thread.interrupt();
-                mp3Thread = null;
+            if (mediaPlayer != null) {
+                mediaPlayer.stop();
+                mediaPlayer.dispose();
+                mediaPlayer = null;
             }
         } else {
             if (clip != null) {
@@ -120,7 +116,8 @@ public class ReproductorUniversal {
     
     public boolean isPlaying() {
         if (isMP3) {
-            return mp3Thread != null && mp3Thread.isAlive() && !isPaused;
+            return mediaPlayer != null && 
+                   mediaPlayer.getStatus() == MediaPlayer.Status.PLAYING;
         } else {
             return clip != null && clip.isRunning();
         }
@@ -128,5 +125,32 @@ public class ReproductorUniversal {
     
     public boolean isPaused() {
         return isPaused;
+    }
+    
+    public double getCurrentTime() {
+        if (isMP3 && mediaPlayer != null) {
+            return mediaPlayer.getCurrentTime().toSeconds();
+        } else if (!isMP3 && clip != null) {
+            return clip.getMicrosecondPosition() / 1_000_000.0;
+        }
+        return 0;
+    }
+    
+    public double getDuration() {
+        if (isMP3 && mediaPlayer != null && mediaPlayer.getTotalDuration() != null) {
+            return mediaPlayer.getTotalDuration().toSeconds();
+        } else if (!isMP3 && clip != null) {
+            return clip.getMicrosecondLength() / 1_000_000.0;
+        }
+        return 0;
+    }
+    
+    public void seek(int segundos) {
+        if (isMP3 && mediaPlayer != null) {
+            mediaPlayer.seek(Duration.seconds(segundos));
+        } else if (!isMP3 && clip != null) {
+            long microsegundos = segundos * 1_000_000L;
+            clip.setMicrosecondPosition(microsegundos);
+        }
     }
 }

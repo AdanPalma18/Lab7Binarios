@@ -125,7 +125,7 @@ public class CancionFormPanel extends JPanel {
             
             return String.format("%d:%02d", minutes, seconds);
         } catch (Exception e) {
-            // Para MP3, intentar leer con JLayer
+            // Para MP3, usar JavaFX Media
             if (audioFile.getName().toLowerCase().endsWith(".mp3")) {
                 return calcularDuracionMP3(audioFile);
             }
@@ -135,26 +135,59 @@ public class CancionFormPanel extends JPanel {
     
     private String calcularDuracionMP3(File audioFile) {
         try {
-            java.io.FileInputStream fis = new java.io.FileInputStream(audioFile);
-            javazoom.jl.decoder.Bitstream bitstream = new javazoom.jl.decoder.Bitstream(fis);
-            javazoom.jl.decoder.Header header = bitstream.readFrame();
+            // Inicializar JavaFX si no está inicializado
+            try {
+                javafx.embed.swing.JFXPanel panel = new javafx.embed.swing.JFXPanel();
+            } catch (Exception e) {
+                // Ya está inicializado
+            }
             
-            if (header != null) {
-                int frameSize = header.calculate_framesize();
-                float frameRate = (float) header.frequency() / (float) (header.layer() == 1 ? 384 : 1152);
-                long fileSize = audioFile.length();
-                float duration = (fileSize / frameSize) / frameRate;
-                
-                int minutes = (int) (duration / 60);
-                int seconds = (int) (duration % 60);
-                
-                bitstream.close();
-                fis.close();
-                
-                return String.format("%d:%02d", minutes, seconds);
+            final String[] resultado = {null};
+            final Object lock = new Object();
+            
+            // Ejecutar en el hilo de JavaFX
+            javafx.application.Platform.runLater(() -> {
+                try {
+                    javafx.scene.media.Media media = new javafx.scene.media.Media(audioFile.toURI().toString());
+                    javafx.scene.media.MediaPlayer player = new javafx.scene.media.MediaPlayer(media);
+                    
+                    player.setOnReady(() -> {
+                        synchronized (lock) {
+                            javafx.util.Duration duration = media.getDuration();
+                            if (duration != null && !duration.isUnknown() && !duration.isIndefinite()) {
+                                double duracionSegundos = duration.toSeconds();
+                                int minutos = (int) (duracionSegundos / 60);
+                                int segundos = (int) (duracionSegundos % 60);
+                                resultado[0] = String.format("%d:%02d", minutos, segundos);
+                            }
+                            player.dispose();
+                            lock.notify();
+                        }
+                    });
+                    
+                    player.setOnError(() -> {
+                        synchronized (lock) {
+                            player.dispose();
+                            lock.notify();
+                        }
+                    });
+                } catch (Exception e) {
+                    synchronized (lock) {
+                        lock.notify();
+                    }
+                }
+            });
+            
+            // Esperar hasta 5 segundos
+            synchronized (lock) {
+                lock.wait(5000);
+            }
+            
+            if (resultado[0] != null) {
+                return resultado[0];
             }
         } catch (Exception e) {
-            // Si falla, usar aproximación
+            System.err.println("Error calculando duración MP3: " + e.getMessage());
         }
         return calcularDuracionAproximada(audioFile);
     }
